@@ -33,7 +33,7 @@ public class FlowOptimisation implements Optimisation<CollapseInstruction, FlowI
                         output.removeLast();
                         yield new FlowInstruction.Set(last_amount + amount);
                     }
-                    if (last instanceof FlowInstruction.Loop || last instanceof FlowInstruction.Transfer)
+                    if (last instanceof FlowInstruction.Loop || last instanceof FlowInstruction.Transfer || last instanceof FlowInstruction.FindZero)
                         yield new FlowInstruction.Set(amount);
                     
                     yield new FlowInstruction.Modify(amount);
