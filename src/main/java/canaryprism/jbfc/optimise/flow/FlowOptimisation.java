@@ -6,7 +6,7 @@ import canaryprism.jbfc.optimise.collapse.CollapseInstruction;
 import java.util.*;
 import java.util.stream.Stream;
 
-public class FlowOptimisation implements Optimisation<CollapseInstruction, FlowInstruction> {
+public final class FlowOptimisation implements Optimisation<CollapseInstruction, FlowInstruction> {
     
     @Override
     public Class<CollapseInstruction> getInput() {
