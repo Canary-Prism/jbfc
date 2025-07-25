@@ -75,7 +75,7 @@ public sealed interface FlowInstruction extends Instruction {
     
     record Transfer(List<Target> targets) implements FlowInstruction {
         
-        record Target(int offset, int multiplier) {
+        public record Target(int offset, int multiplier) {
             public Target {
                 if (offset == 0)
                     throw new IllegalArgumentException("offset can't be 0");
