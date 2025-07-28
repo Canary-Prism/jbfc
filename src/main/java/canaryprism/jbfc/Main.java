@@ -35,7 +35,7 @@ public class Main implements Runnable {
     private List<Path> extension_paths = List.of();
     
     @CommandLine.Option(names = { "-o", "--optimise" }, description = "the level of optimisation to use ('none' for no optimisation)")
-    private String optimise = "flow";
+    private String optimise = "state";
     
     @CommandLine.Option(names = { "-w", "--write-instructions" }, description = "write the final instruction list the compiler will write for every input file")
     private boolean write_instructions = false;

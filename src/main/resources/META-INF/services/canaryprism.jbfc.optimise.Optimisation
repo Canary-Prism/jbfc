@@ -1,2 +1,3 @@
 canaryprism.jbfc.optimise.collapse.CollapseOptimisation
 canaryprism.jbfc.optimise.flow.FlowOptimisation
+canaryprism.jbfc.optimise.state.StateOptimisation
