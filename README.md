@@ -68,3 +68,18 @@ flow does more optimisations, like
 - turn Loops where the total pointer offset is `n` with 0 modifications of any cell into a FindZero with step size of `n`
 - promote all remaining true Loops into their own methods
 - turn Modify `n` instructions that are immediately after Loop, Transfer, FindZero, or Set `k` instructions into Set `n (+ k)` instructions
+
+
+### `state`
+
+state does constant propagation, it keeps track of the array and notes which cells' values can be determined 
+at compiletime (aka isn't influenced by data read from stdin) and if those cells are written to stdout 
+it's converted to a static print instead
+
+if the pointer is lost at any point then it immediately gives up constant propagation and further bytecode emitted
+is identical to `flow`
+
+idk why it's called `state` it's just that i tried to figure out constant propagation for defuck too and at that time
+i decided to call it state for whatever stupid reason
+
+this level takes much much longer to compile though especially for larger programs as it's basically a `flow` instruction interpreter bolted to a compiler
