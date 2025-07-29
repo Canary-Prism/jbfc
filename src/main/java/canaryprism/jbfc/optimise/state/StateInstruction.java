@@ -218,7 +218,7 @@ public sealed interface StateInstruction extends Instruction {
                         .getstatic(System.class.describeConstable().orElseThrow(), "out",
                                 PrintStream.class.describeConstable().orElseThrow())
                         .loadConstant(sb.toString())
-                        .invokevirtual(OutputStream.class.describeConstable().orElseThrow(), "print",
+                        .invokevirtual(PrintStream.class.describeConstable().orElseThrow(), "print",
                                 MethodTypeDesc.ofDescriptor("(Ljava/lang/String;)V"));
             }
         }
