@@ -5,7 +5,6 @@ import canaryprism.jbfc.optimise.flow.FlowInstruction;
 
 import java.util.*;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public final class StateOptimisation implements Optimisation<FlowInstruction, StateInstruction> {
     
@@ -105,21 +104,11 @@ public final class StateOptimisation implements Optimisation<FlowInstruction, St
     @Override
     public List<StateInstruction> optimise(List<FlowInstruction> input) {
         var state = new State();
-        var instructions = optimise(input, state, false);
         
-        var output = new LinkedList<StateInstruction>();
-        
-        output.add(new StateInstruction.Print(instructions.stream()
-                .flatMap((e) -> (e instanceof StateInstruction.Print(var characters))?
-                        characters.stream()
-                        : Stream.empty())
-                .toList()));
-        
-        output.addAll(instructions.stream()
-                .filter((e) -> !(e instanceof StateInstruction.Print))
-                .toList());
-        
-        return output;
+        if (input.stream().anyMatch((e) -> e instanceof FlowInstruction.Read))
+            return optimise(input, state, false);
+        else
+            return List.of(interpret(input));
     }
     
     List<StateInstruction> optimise(List<FlowInstruction> input, State state, boolean loop) {
@@ -141,7 +130,11 @@ public final class StateOptimisation implements Optimisation<FlowInstruction, St
                         if (state.isInfectedHere()) {
                             output.add(StateInstruction.Write.INSTANCE);
                         } else {
-                            output.add(new StateInstruction.Print(List.of(((char) state.array[state.pointer]))));
+                            if (output.peekLast() instanceof StateInstruction.Print(var list)) {
+                                list.add(((char) state.array[state.pointer]));
+                            } else {
+                                output.add(new StateInstruction.Print(new LinkedList<>(List.of(((char) state.array[state.pointer])))));
+                            }
                         }
                     }
                     case FlowInstruction.Move(var amount) -> state.movePointer(amount);
@@ -265,6 +258,45 @@ public final class StateOptimisation implements Optimisation<FlowInstruction, St
 //            woohoo i guess
         }
         return output;
+    }
+    
+    StateInstruction.Print interpret(List<FlowInstruction> input) {
+        return new StateInstruction.Print(interpret(input, new State()));
+    }
+    
+    List<Character> interpret(List<FlowInstruction> input, State state) {
+        var chars = new LinkedList<Character>();
+        for (var e : input) {
+            switch (e) {
+                case FlowInstruction.Read _ -> throw new IllegalArgumentException();
+                case FlowInstruction.Move(var amount) -> state.movePointer(amount);
+                case FlowInstruction.Modify(var amount) -> state.modifyHere(amount);
+                case FlowInstruction.Set(var value) -> state.setHere(value);
+                case FlowInstruction.FindZero(var step) -> {
+                    var pointer = state.pointer;
+                    while (state.array[pointer] != 0) {
+                        pointer += step;
+                    }
+                    state.setPointer(pointer);
+                }
+                case FlowInstruction.Transfer(var targets) -> {
+                    var pointer = state.pointer;
+                    var value = state.array[pointer];
+                    for (var target : targets) {
+                        state.setPointer(pointer + target.offset());
+                        state.modifyHere(value * target.multiplier());
+                    }
+                    state.setPointer(pointer);
+                    state.setHere(0);
+                }
+                case FlowInstruction.Loop(var instructions, var _) -> {
+                    while (state.array[state.pointer] != 0)
+                        chars.addAll(interpret(instructions, state));
+                }
+                case FlowInstruction.Write _ -> chars.add(((char) state.array[state.pointer]));
+            }
+        }
+        return chars;
     }
     
     @Override
