@@ -132,7 +132,8 @@ public class Main implements Runnable {
                     @Override
                     public Consumer<CodeBuilder.BlockCodeBuilder> loadIndex(Instruction.Pointer pointer) {
                         return (builder) -> builder
-                                .getstatic(self, "array", int[].class.describeConstable().orElseThrow())                                .block(pointer.load())
+                                .getstatic(self, "array", int[].class.describeConstable().orElseThrow())
+                                .block(pointer.load())
                                 .iaload();
                     }
                     
