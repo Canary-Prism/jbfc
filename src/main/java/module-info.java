@@ -1,5 +1,6 @@
 module canaryprism.jbfc {
     requires info.picocli;
+    requires org.apache.commons.lang3;
     uses canaryprism.jbfc.optimise.Optimisation;
     
     exports canaryprism.jbfc;
