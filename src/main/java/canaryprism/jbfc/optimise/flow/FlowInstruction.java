@@ -1,9 +1,11 @@
 package canaryprism.jbfc.optimise.flow;
 
 import canaryprism.jbfc.Instruction;
-import canaryprism.jbfc.bf.BrainfuckInstruction;
 
-import java.lang.classfile.*;
+import java.lang.classfile.ClassBuilder;
+import java.lang.classfile.ClassFile;
+import java.lang.classfile.CodeBuilder;
+import java.lang.classfile.TypeKind;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.MethodTypeDesc;
 import java.util.Comparator;
@@ -16,16 +18,18 @@ public sealed interface FlowInstruction extends Instruction {
         INSTANCE;
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
-            BrainfuckInstruction.BasicInstruction.WRITE.writeCode(code_builder, self, array, pointer);
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
+            code_builder
+                    .block(output.write(array, pointer));
         }
     }
     enum Read implements FlowInstruction {
         INSTANCE;
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
-            BrainfuckInstruction.BasicInstruction.READ.writeCode(code_builder, self, array, pointer);
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
+            code_builder
+                    .block(input.read(array, pointer));
         }
     }
     
@@ -35,7 +39,7 @@ public sealed interface FlowInstruction extends Instruction {
         }
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             code_builder
                     .block(array.load())
                     .block(pointer.load())
@@ -55,7 +59,7 @@ public sealed interface FlowInstruction extends Instruction {
         }
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             code_builder
                     .block(array.load())
                     .block(pointer.load())
@@ -67,7 +71,7 @@ public sealed interface FlowInstruction extends Instruction {
     record Move(int amount) implements FlowInstruction {
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             code_builder
                     .block(pointer.inc(amount));
         }
@@ -91,7 +95,7 @@ public sealed interface FlowInstruction extends Instruction {
         }
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             code_builder.block((block_builder) -> {
 
     //             dam complicated instruction to implement mm
@@ -141,13 +145,13 @@ public sealed interface FlowInstruction extends Instruction {
         }
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             code_builder
                     .invokestatic(self, name, MethodTypeDesc.ofDescriptor("()V"));
         }
         
         @Override
-        public void writeClass(ClassBuilder class_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeClass(ClassBuilder class_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             class_builder
                     .withMethod(name, MethodTypeDesc.ofDescriptor("()V"), ClassFile.ACC_STATIC, (method_builder) -> method_builder
                             .withCode((code_builder) -> {
@@ -161,7 +165,7 @@ public sealed interface FlowInstruction extends Instruction {
                                         .ifeq(right_label);
                                 
                                 for (var instruction : instructions) {
-                                    instruction.writeCode(code_builder, self, array, pointer);
+                                    instruction.writeCode(code_builder, self, array, pointer, input, output);
                                 }
 
                                 code_builder
@@ -171,7 +175,7 @@ public sealed interface FlowInstruction extends Instruction {
                             }));
             
             for (var instruction : instructions) {
-                instruction.writeClass(class_builder, self, array, pointer);
+                instruction.writeClass(class_builder, self, array, pointer, input, output);
             }
         }
     }
@@ -179,7 +183,7 @@ public sealed interface FlowInstruction extends Instruction {
     record FindZero(int step) implements FlowInstruction {
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             var start = code_builder.newLabel();
             var end = code_builder.newLabel();
             

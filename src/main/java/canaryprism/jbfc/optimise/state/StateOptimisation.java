@@ -1,9 +1,23 @@
 package canaryprism.jbfc.optimise.state;
 
+import canaryprism.jbfc.Instruction;
 import canaryprism.jbfc.optimise.Optimisation;
 import canaryprism.jbfc.optimise.flow.FlowInstruction;
 
+import java.io.*;
+import java.lang.classfile.ClassFile;
+import java.lang.classfile.CodeBuilder;
+import java.lang.classfile.TypeKind;
+import java.lang.constant.ClassDesc;
+import java.lang.constant.MethodTypeDesc;
+import java.lang.reflect.AccessFlag;
+import java.lang.reflect.InvocationTargetException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 public final class StateOptimisation implements Optimisation<FlowInstruction, StateInstruction> {
@@ -261,42 +275,170 @@ public final class StateOptimisation implements Optimisation<FlowInstruction, St
     }
     
     StateInstruction.Print interpret(List<FlowInstruction> input) {
-        return new StateInstruction.Print(interpret(input, new State()));
+        return new StateInstruction.Print(compile(input));
     }
     
-    List<Character> interpret(List<FlowInstruction> input, State state) {
-        var chars = new LinkedList<Character>();
-        for (var e : input) {
-            switch (e) {
-                case FlowInstruction.Read _ -> throw new IllegalArgumentException();
-                case FlowInstruction.Move(var amount) -> state.movePointer(amount);
-                case FlowInstruction.Modify(var amount) -> state.modifyHere(amount);
-                case FlowInstruction.Set(var value) -> state.setHere(value);
-                case FlowInstruction.FindZero(var step) -> {
-                    var pointer = state.pointer;
-                    while (state.array[pointer] != 0) {
-                        pointer += step;
+    List<Character> compile(List<FlowInstruction> instructions) {
+        try {
+            var zip_path = Files.createTempFile(null, ".zip");
+            Files.deleteIfExists(zip_path);
+            var classname = "State";
+            try (var fs = FileSystems.newFileSystem(zip_path, Map.of("create", true))) {
+                var root = fs.getPath("/");
+                var classfile = ClassFile.of();
+                var path = root.resolve(classname + ".class");
+                var data = classfile.build(ClassDesc.of(classname), (class_builder) -> {
+                    
+                    var self = ClassDesc.of(classname);
+                    
+                    var array = new Instruction.Array() {
+                        @Override
+                        public Consumer<CodeBuilder.BlockCodeBuilder> load() {
+                            return (builder) -> builder
+                                    .getstatic(self, "array", int[].class.describeConstable().orElseThrow());
+                        }
+                        
+                        @Override
+                        public Consumer<CodeBuilder.BlockCodeBuilder> loadIndex(Instruction.Pointer pointer) {
+                            return (builder) -> builder
+                                    .getstatic(self, "array", int[].class.describeConstable().orElseThrow())
+                                    .block(pointer.load())
+                                    .iaload();
+                        }
+                        
+                        @Override
+                        public Consumer<CodeBuilder.BlockCodeBuilder> storeIndex(Instruction.Pointer pointer, Instruction.Value value) {
+                            return (builder) -> builder
+                                    .getstatic(self, "array", int[].class.describeConstable().orElseThrow())                                .block(pointer.load())
+                                    .block(value.load())
+                                    .iastore();
+                        }
+                        
+                        @Override
+                        public Consumer<CodeBuilder.BlockCodeBuilder> incIndex(Instruction.Pointer pointer, Instruction.Value amount) {
+                            return (builder) -> builder
+                                    .getstatic(self, "array", int[].class.describeConstable().orElseThrow())                                .block(pointer.load())
+                                    .dup2()
+                                    .iaload()
+                                    .block(amount.load())
+                                    .iadd()
+                                    .iastore();
+                        }
+                    };
+                    
+                    var pointer = new Instruction.Pointer() {
+                        @Override
+                        public Consumer<CodeBuilder.BlockCodeBuilder> load() {
+                            return (builder) -> builder
+                                    .getstatic(self, "pointer", int.class.describeConstable().orElseThrow());
+                        }
+                        
+                        @Override
+                        public Consumer<CodeBuilder.BlockCodeBuilder> store(Instruction.Value value) {
+                            return (builder) -> builder
+                                    .block(value.load())
+                                    .putstatic(self, "pointer", int.class.describeConstable().orElseThrow());                    }
+                        
+                        @Override
+                        public Consumer<CodeBuilder.BlockCodeBuilder> inc(Instruction.Value amount) {
+                            return (builder) -> builder
+                                    .block(amount.load())
+                                    .getstatic(self, "pointer", int.class.describeConstable().orElseThrow())                                .iadd()
+                                    .putstatic(self, "pointer", int.class.describeConstable().orElseThrow());
+                        }
+                        
+                        @Override
+                        public Consumer<CodeBuilder.BlockCodeBuilder> inc(int amount) {
+                            return this.inc(() -> (builder) -> builder
+                                    .loadConstant(amount));
+                        }
+                    };
+                    
+                    var inputstream = new Instruction.Input() {
+                        @Override
+                        public Consumer<CodeBuilder.BlockCodeBuilder> read() {
+                            return (builder) -> builder
+                                    .invokevirtual(InputStream.class.describeConstable().orElseThrow(), "read",
+                                            MethodTypeDesc.ofDescriptor("()I"));
+                        }
+                        
+                        @Override
+                        public Consumer<CodeBuilder.BlockCodeBuilder> load() {
+                            return (builder) -> builder
+                                    .getstatic(System.class.describeConstable().orElseThrow(), "in",
+                                            InputStream.class.describeConstable().orElseThrow());
+                        }
+                    };
+                    var outputstream = new Instruction.Output() {
+                        @Override
+                        public Consumer<CodeBuilder.BlockCodeBuilder> write() {
+                            return (builder) -> builder
+                                    .invokevirtual(OutputStream.class.describeConstable().orElseThrow(), "write",
+                                            MethodTypeDesc.ofDescriptor("(I)V"));
+                        }
+                        
+                        @Override
+                        public Consumer<CodeBuilder.BlockCodeBuilder> load() {
+                            return (builder) -> builder
+                                    .getstatic(self, "output",
+                                            PrintStream.class.describeConstable().orElseThrow());
+                        }
+                    };
+                    
+                    class_builder
+                            .withField("array", int[].class.describeConstable().orElseThrow(), ClassFile.ACC_STATIC)
+                            .withField("pointer", int.class.describeConstable().orElseThrow(), ClassFile.ACC_STATIC)
+                            .withField("outputstream", OutputStream.class.describeConstable().orElseThrow(), ClassFile.ACC_STATIC | ClassFile.ACC_PUBLIC)
+                            .withField("output", PrintStream.class.describeConstable().orElseThrow(), ClassFile.ACC_STATIC | ClassFile.ACC_PUBLIC)
+                            .withMethod("main", MethodTypeDesc.ofDescriptor("([Ljava/lang/String;)V"), AccessFlag.STATIC.mask(), (method_builder) -> method_builder
+                                    .withFlags(AccessFlag.PUBLIC, AccessFlag.STATIC)
+                                    .withCode((code_builder) -> {
+                                        code_builder
+                                                .loadConstant(80_000)
+                                                .newarray(TypeKind.INT)
+                                                .putstatic(self, "array", int[].class.describeConstable().orElseThrow())
+                                                .loadConstant(40_000)
+                                                .putstatic(self, "pointer", int.class.describeConstable().orElseThrow())
+                                                .new_(PrintStream.class.describeConstable().orElseThrow())
+                                                .dup()
+                                                .new_(ByteArrayOutputStream.class.describeConstable().orElseThrow())
+                                                .dup()
+                                                .dup()
+                                                .invokespecial(ByteArrayOutputStream.class.describeConstable().orElseThrow(), "<init>", MethodTypeDesc.ofDescriptor("()V"))
+                                                .putstatic(self, "outputstream", OutputStream.class.describeConstable().orElseThrow())
+                                                .invokespecial(PrintStream.class.describeConstable().orElseThrow(), "<init>", MethodTypeDesc.ofDescriptor("(Ljava/io/OutputStream;)V"))
+                                                .putstatic(self, "output", PrintStream.class.describeConstable().orElseThrow());
+                                        for (var e : instructions) {
+                                            e.writeCode(code_builder, self, array, pointer, inputstream, outputstream);
+                                        }
+                                        code_builder
+                                                .return_();
+                                    }));
+                    for (var e : instructions) {
+                        e.writeClass(class_builder, self, array, pointer, inputstream, outputstream);
                     }
-                    state.setPointer(pointer);
-                }
-                case FlowInstruction.Transfer(var targets) -> {
-                    var pointer = state.pointer;
-                    var value = state.array[pointer];
-                    for (var target : targets) {
-                        state.setPointer(pointer + target.offset());
-                        state.modifyHere(value * target.multiplier());
-                    }
-                    state.setPointer(pointer);
-                    state.setHere(0);
-                }
-                case FlowInstruction.Loop(var instructions, var _) -> {
-                    while (state.array[state.pointer] != 0)
-                        chars.addAll(interpret(instructions, state));
-                }
-                case FlowInstruction.Write _ -> chars.add(((char) state.array[state.pointer]));
+                });
+                
+                Files.write(path, data);
+                
             }
+            try (var classloader = new URLClassLoader(new URL[] { zip_path.toUri().toURL() })) {
+                var state = classloader.loadClass(classname);
+                state.getMethod("main", String[].class).invoke(null, (Object) new String[0]);
+                var outputstream = ((ByteArrayOutputStream) state.getField("outputstream").get(null));
+                return outputstream.toString()
+                        .chars()
+                        .mapToObj((e) -> (char) e)
+                        .toList();
+            } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException |
+                     InvocationTargetException | NoSuchFieldException e) {
+                throw new RuntimeException(e);
+            } finally {
+                Files.deleteIfExists(zip_path);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-        return chars;
     }
     
     @Override

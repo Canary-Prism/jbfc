@@ -7,9 +7,9 @@ import java.util.function.Consumer;
 
 public interface Instruction {
     
-    void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer);
+    void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output);
     
-    default void writeClass(ClassBuilder class_builder, ClassDesc self, Array array, Pointer pointer) {}
+    default void writeClass(ClassBuilder class_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {}
     
     interface Array {
         Consumer<CodeBuilder.BlockCodeBuilder> load();
@@ -27,5 +27,26 @@ public interface Instruction {
     
     interface Value {
         Consumer<CodeBuilder.BlockCodeBuilder> load();
+    }
+    
+    interface Output extends Value {
+        default Consumer<CodeBuilder.BlockCodeBuilder> write(Array array, Pointer pointer) {
+            return (builder) -> builder
+                    .block(load())
+                    .block(array.loadIndex(pointer))
+                    .block(write());
+        }
+        Consumer<CodeBuilder.BlockCodeBuilder> write();
+    }
+    interface Input extends Value {
+        default Consumer<CodeBuilder.BlockCodeBuilder> read(Array array, Pointer pointer) {
+            return (builder) -> builder
+                    .block(array.load())
+                    .block(pointer.load())
+                    .block(load())
+                    .block(read())
+                    .iastore();
+        }
+        Consumer<CodeBuilder.BlockCodeBuilder> read();
     }
 }

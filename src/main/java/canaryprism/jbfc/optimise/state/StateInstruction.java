@@ -1,9 +1,7 @@
 package canaryprism.jbfc.optimise.state;
 
 import canaryprism.jbfc.Instruction;
-import canaryprism.jbfc.bf.BrainfuckInstruction;
 
-import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.classfile.ClassBuilder;
 import java.lang.classfile.ClassFile;
@@ -22,16 +20,18 @@ public sealed interface StateInstruction extends Instruction {
         INSTANCE;
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
-            BrainfuckInstruction.BasicInstruction.WRITE.writeCode(code_builder, self, array, pointer);
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
+            code_builder
+                    .block(output.write(array, pointer));
         }
     }
     enum Read implements StateInstruction {
         INSTANCE;
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
-            BrainfuckInstruction.BasicInstruction.READ.writeCode(code_builder, self, array, pointer);
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
+            code_builder
+                    .block(input.read(array, pointer));
         }
     }
     
@@ -41,7 +41,7 @@ public sealed interface StateInstruction extends Instruction {
         }
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             code_builder
                     .block(array.load())
                     .block(pointer.load())
@@ -61,7 +61,7 @@ public sealed interface StateInstruction extends Instruction {
         }
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             code_builder
                     .block(array.load())
                     .block(pointer.load())
@@ -73,7 +73,7 @@ public sealed interface StateInstruction extends Instruction {
     record Move(int amount) implements StateInstruction {
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             code_builder
                     .block(pointer.inc(amount));
         }
@@ -97,7 +97,7 @@ public sealed interface StateInstruction extends Instruction {
         }
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             code_builder.block((block_builder) -> {
                 
                 //             dam complicated instruction to implement mm
@@ -147,13 +147,13 @@ public sealed interface StateInstruction extends Instruction {
         }
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             code_builder
                     .invokestatic(self, name, MethodTypeDesc.ofDescriptor("()V"));
         }
         
         @Override
-        public void writeClass(ClassBuilder class_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeClass(ClassBuilder class_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             class_builder
                     .withMethod(name, MethodTypeDesc.ofDescriptor("()V"), ClassFile.ACC_STATIC, (method_builder) -> method_builder
                             .withCode((code_builder) -> {
@@ -167,7 +167,7 @@ public sealed interface StateInstruction extends Instruction {
                                         .ifeq(right_label);
                                 
                                 for (var instruction : instructions) {
-                                    instruction.writeCode(code_builder, self, array, pointer);
+                                    instruction.writeCode(code_builder, self, array, pointer, input, output);
                                 }
                                 
                                 code_builder
@@ -177,7 +177,7 @@ public sealed interface StateInstruction extends Instruction {
                             }));
             
             for (var instruction : instructions) {
-                instruction.writeClass(class_builder, self, array, pointer);
+                instruction.writeClass(class_builder, self, array, pointer, input, output);
             }
         }
     }
@@ -185,7 +185,7 @@ public sealed interface StateInstruction extends Instruction {
     record FindZero(int step) implements StateInstruction {
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             var start = code_builder.newLabel();
             var end = code_builder.newLabel();
             
@@ -202,21 +202,18 @@ public sealed interface StateInstruction extends Instruction {
     record Print(List<Character> chars) implements StateInstruction {
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             if (chars.size() == 1) {
                 code_builder
-                        .getstatic(System.class.describeConstable().orElseThrow(), "out",
-                                PrintStream.class.describeConstable().orElseThrow())
+                        .block(output.load())
                         .loadConstant(chars.getFirst())
-                        .invokevirtual(OutputStream.class.describeConstable().orElseThrow(), "write",
-                                MethodTypeDesc.ofDescriptor("(I)V"));
+                        .block(output.write());
             } else {
                 var sb = new StringBuilder();
                 for (var e : chars)
                     sb.append(e.charValue());
                 code_builder
-                        .getstatic(System.class.describeConstable().orElseThrow(), "out",
-                                PrintStream.class.describeConstable().orElseThrow())
+                        .block(output.load())
                         .loadConstant(sb.toString())
                         .invokevirtual(PrintStream.class.describeConstable().orElseThrow(), "print",
                                 MethodTypeDesc.ofDescriptor("(Ljava/lang/String;)V"));
@@ -234,7 +231,7 @@ public sealed interface StateInstruction extends Instruction {
         }
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             for (var entry : entries) {
                 pointer = new Pointer() {
                     @Override
@@ -269,7 +266,7 @@ public sealed interface StateInstruction extends Instruction {
     record PointerSet(int value) implements StateInstruction {
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             code_builder
                     .block(pointer.store(() -> (e) -> e.loadConstant(value)));
         }

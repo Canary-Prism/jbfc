@@ -1,7 +1,6 @@
 package canaryprism.jbfc.optimise.collapse;
 
 import canaryprism.jbfc.Instruction;
-import canaryprism.jbfc.bf.BrainfuckInstruction;
 
 import java.lang.classfile.CodeBuilder;
 import java.lang.constant.ClassDesc;
@@ -13,16 +12,18 @@ public sealed interface CollapseInstruction extends Instruction {
         INSTANCE;
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
-            BrainfuckInstruction.BasicInstruction.WRITE.writeCode(code_builder, self, array, pointer);
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
+            code_builder
+                    .block(output.write(array, pointer));
         }
     }
     enum Read implements CollapseInstruction {
         INSTANCE;
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
-            BrainfuckInstruction.BasicInstruction.READ.writeCode(code_builder, self, array, pointer);
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
+            code_builder
+                    .block(input.read(array, pointer));
         }
     }
     
@@ -32,7 +33,7 @@ public sealed interface CollapseInstruction extends Instruction {
         }
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             code_builder
                     .block(array.load())
                     .block(pointer.load())
@@ -49,7 +50,7 @@ public sealed interface CollapseInstruction extends Instruction {
     record Move(int amount) implements CollapseInstruction {
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             code_builder
                     .block(pointer.inc(amount));
         }
@@ -58,7 +59,7 @@ public sealed interface CollapseInstruction extends Instruction {
     record Loop(List<CollapseInstruction> instructions) implements CollapseInstruction {
         
         @Override
-        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer) {
+        public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
             var right_label = code_builder.newLabel();
             var left_label = code_builder.newLabel();
             code_builder
@@ -69,7 +70,7 @@ public sealed interface CollapseInstruction extends Instruction {
                     .ifeq(right_label);
             
             for (var instruction : instructions) {
-                instruction.writeCode(code_builder, self, array, pointer);
+                instruction.writeCode(code_builder, self, array, pointer, input, output);
             }
             
             code_builder

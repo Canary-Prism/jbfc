@@ -5,6 +5,9 @@ import canaryprism.jbfc.optimise.Optimisation;
 import picocli.CommandLine;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.TypeKind;
@@ -185,6 +188,37 @@ public class Main implements Runnable {
                     }
                 };
                 
+                var inputstream = new Instruction.Input() {
+                    @Override
+                    public Consumer<CodeBuilder.BlockCodeBuilder> read() {
+                        return (builder) -> builder
+                                .invokevirtual(InputStream.class.describeConstable().orElseThrow(), "read",
+                                        MethodTypeDesc.ofDescriptor("()I"));
+                    }
+                    
+                    @Override
+                    public Consumer<CodeBuilder.BlockCodeBuilder> load() {
+                        return (builder) -> builder
+                                .getstatic(System.class.describeConstable().orElseThrow(), "in",
+                                        InputStream.class.describeConstable().orElseThrow());
+                    }
+                };
+                var outputstream = new Instruction.Output() {
+                    @Override
+                    public Consumer<CodeBuilder.BlockCodeBuilder> write() {
+                        return (builder) -> builder
+                                .invokevirtual(OutputStream.class.describeConstable().orElseThrow(), "write",
+                                        MethodTypeDesc.ofDescriptor("(I)V"));
+                    }
+                    
+                    @Override
+                    public Consumer<CodeBuilder.BlockCodeBuilder> load() {
+                        return (builder) -> builder
+                                .getstatic(System.class.describeConstable().orElseThrow(), "out",
+                                        PrintStream.class.describeConstable().orElseThrow());
+                    }
+                };
+                
                 class_builder
                         .withField("array", int[].class.describeConstable().orElseThrow(), ClassFile.ACC_STATIC)
                         .withField("pointer", int.class.describeConstable().orElseThrow(), ClassFile.ACC_STATIC)
@@ -198,13 +232,13 @@ public class Main implements Runnable {
                                             .loadConstant(40_000)
                                             .putstatic(self, "pointer", int.class.describeConstable().orElseThrow());
                                     for (var e : instructions) {
-                                        e.writeCode(code_builder, self, array, pointer);
+                                        e.writeCode(code_builder, self, array, pointer, inputstream, outputstream);
                                     }
                                     code_builder
                                             .return_();
                                 }));
                 for (var e : instructions) {
-                    e.writeClass(class_builder, self, array, pointer);
+                    e.writeClass(class_builder, self, array, pointer, inputstream, outputstream);
                 }
             });
             
