@@ -1,0 +1,159 @@
+name: "Native Image Build"
+run-name: "Native Image Build for ${{ github.event.release.tag_name }}"
+
+on:
+  release:
+    types: [ published ]
+env:
+  JAVA_VERSION: "24"
+jobs:
+  build_mac_arm64:
+    name: "Native Image Build for Mac arm64"
+    runs-on: "macos-latest"
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@v5"
+      - name: "Set up Java"
+        uses: "actions/setup-java@v5"
+        with:
+          java-version: "${{ env.JAVA_VERSION }}"
+          distribution: "graalvm"
+      - name: "Setup Gradle"
+        uses: "gradle/actions/setup-gradle@v4"
+      - name: "Native Image"
+        shell: "bash"
+        run: |
+          ./gradlew nativeRelease
+      - name: "Bundle Executable"
+        shell: "bash"
+        run: |
+          cd build/native
+          mkdir package
+          . info.env
+          tar -czf "package/${NAME}-${VERSION}-mac-arm64.tar.gz" "$(find nativeCompile -type f)"
+      - name: "Upload Artifact to Release"
+        uses: "softprops/action-gh-release@v2"
+        if: "github.ref_type == 'tag'"
+        with:
+          files: "build/native/package/*"
+          token: "${{ secrets.TOKEN }}"
+  build_mac_x86_64:
+    name: "Native Image Build for Mac x86_64"
+    runs-on: "macos-13"
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@v5"
+      - name: "Set up Java"
+        uses: "actions/setup-java@v5"
+        with:
+          java-version: "${{ env.JAVA_VERSION }}"
+          distribution: "graalvm"
+      - name: "Setup Gradle"
+        uses: "gradle/actions/setup-gradle@v4"
+      - name: "Native Image"
+        shell: "bash"
+        run: |
+          ./gradlew nativeRelease
+      - name: "Bundle Executable"
+        shell: "bash"
+        run: |
+          cd build/native
+          mkdir package
+          . info.env
+          tar -czf "package/${NAME}-${VERSION}-mac-x86_64.tar.gz" "$(find nativeCompile -type f)"
+      - name: "Upload Artifact to Release"
+        uses: "softprops/action-gh-release@v2"
+        if: "github.ref_type == 'tag'"
+        with:
+          files: "build/native/package/*"
+          token: "${{ secrets.TOKEN }}"
+  build_windows:
+    name: "Native Image Build for Windows"
+    runs-on: "windows-latest"
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@v5"
+      - name: "Set up Java"
+        uses: "actions/setup-java@v5"
+        with:
+          java-version: "${{ env.JAVA_VERSION }}"
+          distribution: "graalvm"
+      - name: "Setup Gradle"
+        uses: "gradle/actions/setup-gradle@v4"
+      - name: "Native Image"
+        shell: "bash"
+        run: |
+          ./gradlew nativeRelease
+      - name: "Bundle Executable"
+        shell: "bash"
+        run: |
+          cd build/native
+          mkdir package
+          . info.env
+          zip "package/${NAME}-${VERSION}-x86_64.zip" "$(find nativeCompile -type f)"
+      - name: "Upload Artifact to Release"
+        uses: "softprops/action-gh-release@v2"
+        if: "github.ref_type == 'tag'"
+        with:
+          files: "build/native/package/*"
+          token: "${{ secrets.TOKEN }}"
+  build_linux_x86_64:
+    name: "Native Image Build for Linux x86_64"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@v5"
+      - name: "Set up Java"
+        uses: "actions/setup-java@v5"
+        with:
+          java-version: "${{ env.JAVA_VERSION }}"
+          distribution: "graalvm"
+      - name: "Setup Gradle"
+        uses: "gradle/actions/setup-gradle@v4"
+      - name: "Native Image"
+        shell: "bash"
+        run: |
+          ./gradlew nativeRelease
+      - name: "Bundle Executable"
+        shell: "bash"
+        run: |
+          cd build/native
+          mkdir package
+          . info.env
+          tar -czf "package/${NAME}-${VERSION}-linux-x86_64.tar.gz" "$(find nativeCompile -type f)"
+      - name: "Upload Artifact to Release"
+        uses: "softprops/action-gh-release@v2"
+        if: "github.ref_type == 'tag'"
+        with:
+          files: "build/native/package/*"
+          token: "${{ secrets.TOKEN }}"
+  build_linux_arm64:
+    name: "Native Image Build for Linux arm64"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@v5"
+      - name: "Set up Java"
+        uses: "actions/setup-java@v5"
+        with:
+          java-version: "${{ env.JAVA_VERSION }}"
+          distribution: "graalvm"
+      - name: "Setup Gradle"
+        uses: "gradle/actions/setup-gradle@v4"
+      - name: "Native Image"
+        shell: "bash"
+        run: |
+          ./gradlew nativeRelease
+      - name: "Bundle Executable"
+        shell: "bash"
+        run: |
+          cd build/native
+          mkdir package
+          . info.env
+          tar -czf "package/${NAME}-${VERSION}-linux-arm64.tar.gz" "$(find nativeCompile -type f)"
+      - name: "Upload Artifact to Release"
+        uses: "softprops/action-gh-release@v2"
+        if: "github.ref_type == 'tag'"
+        with:
+          files: "build/native/package/*"
+          token: "${{ secrets.TOKEN }}"

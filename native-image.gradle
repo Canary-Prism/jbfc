@@ -1,0 +1,31 @@
+
+graalvmNative {
+    binaries {
+        main {
+            javaLauncher = javaToolchains.launcherFor {
+                languageVersion = java.toolchain.languageVersion
+                nativeImageCapable = true
+            }
+        }
+    }
+}
+
+tasks.register("writeInfo") {
+    notCompatibleWithConfigurationCache("i don't really know")
+    doLast {
+        def file = file("build/native/info.env")
+        file.write("""
+            NAME=${project.name}
+            VERSION=${project.version}
+        """.stripIndent())
+    }
+}
+
+tasks.nativeCompile {
+    notCompatibleWithConfigurationCache("mewo")
+}
+
+tasks.register("nativeRelease") {
+    notCompatibleWithConfigurationCache("mewo")
+    dependsOn(tasks.nativeCompile, tasks.named("writeInfo"))
+}

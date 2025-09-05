@@ -1,6 +1,9 @@
+import org.apache.tools.ant.taskdefs.Java
+
 plugins {
     application
     id("com.gradleup.shadow") version "8.3.5"
+    id("org.graalvm.buildtools.native") version "0.11.0"
 }
 
 group = "canaryprism"
@@ -11,7 +14,9 @@ application {
     mainModule = "canaryprism.jbfc"
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(24)
+java.toolchain {
+    languageVersion = JavaLanguageVersion.of(24)
+}
 
 repositories {
     mavenCentral()
@@ -27,6 +32,8 @@ dependencies {
     // https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
     implementation("org.apache.commons:commons-lang3:3.18.0")
 }
+
+apply("native-image.gradle")
 
 tasks.shadowJar {
     mergeServiceFiles()
