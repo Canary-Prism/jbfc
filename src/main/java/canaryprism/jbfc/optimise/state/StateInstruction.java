@@ -1,6 +1,7 @@
 package canaryprism.jbfc.optimise.state;
 
 import canaryprism.jbfc.Instruction;
+import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.PrintStream;
 import java.lang.classfile.ClassBuilder;
@@ -9,10 +10,12 @@ import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.TypeKind;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.MethodTypeDesc;
+import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.stream.Gatherers;
 
 public sealed interface StateInstruction extends Instruction {
     
@@ -199,24 +202,26 @@ public sealed interface StateInstruction extends Instruction {
         }
     }
     
-    record Print(List<Character> chars) implements StateInstruction {
+    record Print(List<Byte> bytes) implements StateInstruction {
         
         @Override
         public void writeCode(CodeBuilder code_builder, ClassDesc self, Array array, Pointer pointer, Input input, Output output) {
-            if (chars.size() == 1) {
+            if (bytes.size() == 1) {
                 code_builder
                         .block(output.load())
-                        .loadConstant(chars.getFirst())
+                        .loadConstant(bytes.getFirst())
                         .block(output.write());
             } else {
-                var sb = new StringBuilder();
-                for (var e : chars)
-                    sb.append(e.charValue());
-                code_builder
-                        .block(output.load())
-                        .loadConstant(sb.toString())
-                        .invokevirtual(PrintStream.class.describeConstable().orElseThrow(), "print",
-                                MethodTypeDesc.ofDescriptor("(Ljava/lang/String;)V"));
+                bytes.stream()
+                        .gather(Gatherers.windowFixed(Character.MAX_VALUE))
+                        .forEachOrdered((split_chars) -> {
+                            var str = new String(ArrayUtils.toPrimitive(split_chars.toArray(Byte[]::new)), StandardCharsets.UTF_8);
+                            code_builder
+                                    .block(output.load())
+                                    .loadConstant(str)
+                                    .invokevirtual(PrintStream.class.describeConstable().orElseThrow(), "print",
+                                            MethodTypeDesc.ofDescriptor("(Ljava/lang/String;)V"));
+                        });
             }
         }
     }

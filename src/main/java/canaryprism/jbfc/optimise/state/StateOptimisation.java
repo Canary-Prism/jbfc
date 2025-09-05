@@ -3,6 +3,7 @@ package canaryprism.jbfc.optimise.state;
 import canaryprism.jbfc.Instruction;
 import canaryprism.jbfc.optimise.Optimisation;
 import canaryprism.jbfc.optimise.flow.FlowInstruction;
+import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.*;
 import java.lang.classfile.ClassFile;
@@ -145,9 +146,9 @@ public final class StateOptimisation implements Optimisation<FlowInstruction, St
                             output.add(StateInstruction.Write.INSTANCE);
                         } else {
                             if (output.peekLast() instanceof StateInstruction.Print(var list)) {
-                                list.add(((char) state.array[state.pointer]));
+                                list.add(((byte) state.array[state.pointer]));
                             } else {
-                                output.add(new StateInstruction.Print(new LinkedList<>(List.of(((char) state.array[state.pointer])))));
+                                output.add(new StateInstruction.Print(new LinkedList<>(List.of(((byte) state.array[state.pointer])))));
                             }
                         }
                     }
@@ -278,7 +279,7 @@ public final class StateOptimisation implements Optimisation<FlowInstruction, St
         return new StateInstruction.Print(compile(input));
     }
     
-    List<Character> compile(List<FlowInstruction> instructions) {
+    List<Byte> compile(List<FlowInstruction> instructions) {
         try {
             var zip_path = Files.createTempFile(null, ".zip");
             Files.deleteIfExists(zip_path);
@@ -426,10 +427,7 @@ public final class StateOptimisation implements Optimisation<FlowInstruction, St
                 var state = classloader.loadClass(classname);
                 state.getMethod("main", String[].class).invoke(null, (Object) new String[0]);
                 var outputstream = ((ByteArrayOutputStream) state.getField("outputstream").get(null));
-                return outputstream.toString()
-                        .chars()
-                        .mapToObj((e) -> (char) e)
-                        .toList();
+                return List.of(ArrayUtils.toObject(outputstream.toByteArray()));
             } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException |
                      InvocationTargetException | NoSuchFieldException e) {
                 throw new RuntimeException(e);

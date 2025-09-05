@@ -23,6 +23,9 @@ dependencies {
 
     // https://mvnrepository.com/artifact/info.picocli/picocli
     implementation("info.picocli:picocli:4.7.7")
+
+    // https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
+    implementation("org.apache.commons:commons-lang3:3.18.0")
 }
 
 tasks.shadowJar {
