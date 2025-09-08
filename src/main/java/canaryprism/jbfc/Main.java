@@ -43,7 +43,7 @@ public class Main implements Runnable {
     @CommandLine.Option(names = { "-w", "--write-instructions" }, description = "write the final instruction list the compiler will write for every input file")
     private boolean write_instructions = false;
     
-    @CommandLine.Parameters
+    @CommandLine.Parameters(arity = "1..")
     private List<Path> input_paths;
     
     private final ArrayDeque<Optimisation<?, ?>> optimisations = new ArrayDeque<>();
