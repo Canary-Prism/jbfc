@@ -1,7 +1,7 @@
 
 graalvmNative {
     binaries {
-        main {
+        configureEach {
             javaLauncher = javaToolchains.launcherFor {
                 languageVersion = java.toolchain.languageVersion
                 nativeImageCapable = true
