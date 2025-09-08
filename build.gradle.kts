@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "canaryprism"
-version = "2.0.1"
+version = "2.0.2"
 
 application {
     mainClass = "canaryprism.jbfc.Main"
