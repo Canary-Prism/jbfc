@@ -3,6 +3,8 @@ module canaryprism.jbfc {
     requires org.apache.commons.lang3;
     uses canaryprism.jbfc.optimise.Optimisation;
     
+    opens canaryprism.jbfc to info.picocli;
+    
     exports canaryprism.jbfc;
     exports canaryprism.jbfc.bf;
     exports canaryprism.jbfc.optimise;
