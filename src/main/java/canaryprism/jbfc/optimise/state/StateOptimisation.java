@@ -276,7 +276,10 @@ public final class StateOptimisation implements Optimisation<FlowInstruction, St
     }
     
     StateInstruction.Print interpret(List<FlowInstruction> input) {
-        return new StateInstruction.Print(compile(input));
+        if (System.getProperty("org.graalvm.nativeimage.imagecode") == null)
+            return new StateInstruction.Print(compile(input));
+        else
+            return new StateInstruction.Print(interpret(input, new State()));
     }
     
     List<Byte> compile(List<FlowInstruction> instructions) {
@@ -437,6 +440,41 @@ public final class StateOptimisation implements Optimisation<FlowInstruction, St
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+    
+    List<Byte> interpret(List<FlowInstruction> input, State state) {
+        var bytes = new LinkedList<Byte>();
+        for (var e : input) {
+            switch (e) {
+                case FlowInstruction.Read _ -> throw new IllegalArgumentException();
+                case FlowInstruction.Move(var amount) -> state.movePointer(amount);
+                case FlowInstruction.Modify(var amount) -> state.modifyHere(amount);
+                case FlowInstruction.Set(var value) -> state.setHere(value);
+                case FlowInstruction.FindZero(var step) -> {
+                    var pointer = state.pointer;
+                    while (state.array[pointer] != 0) {
+                        pointer += step;
+                    }
+                    state.setPointer(pointer);
+                }
+                case FlowInstruction.Transfer(var targets) -> {
+                    var pointer = state.pointer;
+                    var value = state.array[pointer];
+                    for (var target : targets) {
+                        state.setPointer(pointer + target.offset());
+                        state.modifyHere(value * target.multiplier());
+                    }
+                    state.setPointer(pointer);
+                    state.setHere(0);
+                }
+                case FlowInstruction.Loop(var instructions, var _) -> {
+                    while (state.array[state.pointer] != 0)
+                        bytes.addAll(interpret(instructions, state));
+                }
+                case FlowInstruction.Write _ -> bytes.add(((byte) state.array[state.pointer]));
+            }
+        }
+        return bytes;
     }
     
     @Override
